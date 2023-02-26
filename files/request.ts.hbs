@@ -1,3 +1,4 @@
+import { utf8ArrayToStr } from './decoder'
 let requestFun = getFunction('request')
 let uploadFileFun = getFunction('uploadFile')
 
@@ -29,6 +30,16 @@ export function request(options) {
         reject(err)
       }
     })
+  })
+}
+
+export function liveQuery<T = any>(url: string, callback: (res: T) => void) {
+  wx.request({
+    url: url + (url.includes('?') ? '' : '?') + 'wg_live=true',
+    enableChunked: true,
+  }).onChunkReceived(async res => {
+    const str = utf8ArrayToStr(new Uint8Array(res.data))
+    callback(JSON.parse(str))
   })
 }
 
