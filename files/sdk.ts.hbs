@@ -1,10 +1,10 @@
 import { buildQuery, buildMutation, uploadFile, setAuthHeader, setBaseUrl, getBaseUrl } from './request'
-import type { {{ modelImports }} } from "./models";
+import type { {{> operation_partial operations=operations includeInternal=false includeInject=false includeResponseData=true}} } from './models'
 
 setBaseUrl('{{baseURL}}')
 
 const s3Providers = {
-{{#each s3Provider }}
+{{#each s3Providers }}
   {{name}}: {
     "endpoint" : "{{endpoint.staticVariableContent}}",
     "bucketName" : "{{bucketName.staticVariableContent}}",
@@ -32,14 +32,14 @@ function upload(serverName, filePath, fileName) {
 }
 export default {
   query: {
-  {{#each queries}}
-    {{operationName}}: buildQuery<{{operationName}}Response{{#if hasInput}} ,{{operationName}}Input{{/if}}>('/operations/{{operationName}}'),
+  {{#each (filterOperations operations 'isQuery,!isInternal' true)}}
+    {{name}}: buildQuery<{{name}}Response{{#if hasInput}} ,{{name}}Input{{/if}}>('/operations/{{name}}'),
   {{/each}}
   },
 
   mutation: {
-  {{#each mutations}}
-    {{operationName}}: buildMutation<{{operationName}}Response{{#if hasInput}} ,{{operationName}}Input{{/if}}>('/operations/{{operationName}}'),
+  {{#each (filterOperations operations 'isMutation,!isInternal' true)}}
+    {{name}}: buildMutation<{{name}}Response{{#if hasInput}} ,{{name}}Input{{/if}}>('/operations/{{name}}'),
   {{/each}}
   },
   upload,
