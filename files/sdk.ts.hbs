@@ -14,8 +14,8 @@ const s3Providers = {
 }
 
 
-function upload(serverName, filePath, fileName) {
-  const s3Config = s3Providers[serverName]
+function upload(serverName: string, filePath: string, fileName: string) {
+  const s3Config = s3Providers[serverName as keyof typeof s3Providers]
   if (!s3Config) {
     return null
   }
@@ -23,7 +23,7 @@ function upload(serverName, filePath, fileName) {
     url: `${getBaseUrl()}/app/main/s3/${serverName}/upload`,
     filePath,
     name: fileName
-  }).then(res => {
+  }).then((res: any) => {
     const data = JSON.parse(res.data)
     const key = data && data[0] && data[0].key
     const {useSSL, bucketName, endpoint} = s3Config
@@ -33,13 +33,13 @@ function upload(serverName, filePath, fileName) {
 export default {
   query: {
   {{#each (filterOperations operations 'isQuery,!isInternal' true)}}
-    {{name}}: buildQuery<{{name}}Response{{#if hasInput}} ,{{name}}Input{{/if}}>('/operations/{{name}}'),
+    {{name}}: buildQuery<{{name}}Response{{#if hasInput}} ,{{name}}Input{{/if}}>('/operations/{{path}}'),
   {{/each}}
   },
 
   mutation: {
   {{#each (filterOperations operations 'isMutation,!isInternal' true)}}
-    {{name}}: buildMutation<{{name}}Response{{#if hasInput}} ,{{name}}Input{{/if}}>('/operations/{{name}}'),
+    {{name}}: buildMutation<{{name}}Response{{#if hasInput}} ,{{name}}Input{{/if}}>('/operations/{{path}}'),
   {{/each}}
   },
   upload,
