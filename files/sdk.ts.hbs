@@ -37,6 +37,12 @@ export default {
   {{/each}}
   },
 
+  liveQuery: {
+  {{#each (filterOperations operations 'isQuery,isLiveQuery,!isInternal' true)}}
+    {{name}}: buildLiveQuery<{{name}}Response{{#if hasInput}} ,{{name}}Input{{/if}}>('/operations/{{path}}'),
+  {{/each}}
+  },
+
   mutation: {
   {{#each (filterOperations operations 'isMutation,!isInternal' true)}}
     {{name}}: buildMutation<{{name}}Response{{#if hasInput}} ,{{name}}Input{{/if}}>('/operations/{{path}}'),

@@ -33,14 +33,30 @@ export function request(options) {
   })
 }
 
-export function liveQuery<T = any>(url: string, callback: (res: T) => void) {
-  wx.request({
-    url: url + (url.includes('?') ? '' : '?') + 'wg_live=true',
-    enableChunked: true,
-  }).onChunkReceived(async res => {
-    const str = utf8ArrayToStr(new Uint8Array(res.data))
-    callback(JSON.parse(str))
-  })
+type CallBackFun = (data: string) => void
+export function buildLiveQuery<Output, Input>(url): (cb: CallBackFun, data: Input) => void
+export function buildLiveQuery<Output>(url): (cb: CallBackFun) => void
+
+export function buildLiveQuery(url) {
+  return function (callback, data) {
+    const searchPairs = Object.keys(data || {}).map(key => `${key}=${encodeURIComponent(data[key])}`)
+    searchPairs.push('wg_live=true')
+    const search = searchPairs.join('&')
+    const header: Record<string, string> = {}
+    if (authHeader) {
+      header.Authorization = authHeader
+    }
+    const requestTask = requestFun({
+      url: `${baseUrl}${url}?${search}`,
+      method: 'GET',
+      data: data,
+      header,
+      enableChunked: true
+    })
+    requestTask.onChunkReceived(res => {
+      callback( Utf8ArrayToStr(new Uint8Array(res.data)))
+    })
+  }
 }
 
 export function buildQuery<Output, Input>(url): (data: Input) => Promise<Output>
