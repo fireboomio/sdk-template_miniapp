@@ -16,8 +16,8 @@ function getFunction(fun) {
   }
 }
 
-export function request(options) {
-  return new Promise((resolve, reject) => {
+export function request<T extends { data: any }>(options) {
+  return new Promise<T>((resolve, reject) => {
     requestFun({
       url: options.url,
       method: options.method,
@@ -54,7 +54,7 @@ export function buildLiveQuery(url) {
       enableChunked: true
     })
     requestTask.onChunkReceived(res => {
-      callback( Utf8ArrayToStr(new Uint8Array(res.data)))
+      callback( utf8ArrayToStr(new Uint8Array(res.data)))
     })
   }
 }
