@@ -1,6 +1,14 @@
+{{~#with (filterOperations operations "engine" 1)}}
+    {{#each this}}
+import type function_{{name}} from '../operations/{{path}}'
+    {{/each}}
+    {{~#if (isNotEmpty this)}}
+import type { ExtractResponse } from 'fireboom-wundersdk/operations'
+    {{/if}}
+{{~/with}}
 {{#each operations~}}
     {{#if (isNotEmpty inputSchema)~}}
-        {{~#if hasInput~}}
+        {{#if hasInput~}}
 export interface {{name}}Input {
             {{#each inputSchema.properties as |schema key|}}
    {{> schema_partial data=schema.properties key=key isRequired=(stringInArray key inputSchema.required)}}
@@ -22,29 +30,43 @@ export interface {{name}} {
 }
         {{/each~}}
     {{/if~}}
-    {{#if (isNotEmpty injectedSchema)}}
-        {{#if hasInjectedInput}}
+
+    {{~#equal engine 0}}
+        {{~#if (isNotEmpty injectedSchema)}}
+            {{#if hasInjectedInput}}
 export interface Injected{{name}}Input {
-        {{#each injectedSchema.properties as |schema key|}}
+    {{#each injectedSchema.properties as |schema key|}}
    {{> schema_partial data=schema.properties key=key isRequired=(stringInArray key injectedSchema.required)}}
-        {{/each}}
+    {{/each}}
 }
-        {{/if~}}
-    {{/if}}
-    {{#if (isNotEmpty responseSchema)}}
+            {{/if~}}
+        {{~/if}}
+    {{~/equal}}
+
+    {{#equal engine 1}}
+export type {{name}}ResponseData = ExtractResponse<typeof function_{{name}}>
+
 export interface {{name}}Response {
     data?: {{name}}ResponseData
     errors?: ReadonlyArray<GraphQLError>;
 }
-        {{#with responseSchema.properties.data}}
+    {{/equal}}
+    {{#equal engine 0}}
+export interface {{name}}Response {
+    data?: {{#if (isNotEmpty responseSchema)}}{{name}}ResponseData{{else}}null{{/if}}
+    errors?: ReadonlyArray<GraphQLError>;
+}
+    {{#if (isNotEmpty responseSchema)}}
+            {{#with responseSchema.properties.data}}
 export interface {{name}}ResponseData {
             {{#each properties as |schema key|}}
-    {{> schema_partial data=schema.properties key=key isRequired=(stringInArray key required)}}
+    {{> schema_partial data=schema.properties key=key isRequired=(stringInArray key required)~}}
             {{/each}}
 }
-        {{/with}}
-    {{/if~}}
-{{/each}}
+            {{~/with}}
+    {{~/if}}
+    {{~/equal}}
+{{~/each}}
 
 export type JSONValue = string | number | boolean | JSONObject | Array<JSONValue>;
 
