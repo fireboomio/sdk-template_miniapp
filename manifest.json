@@ -2,8 +2,6 @@
   "name": "miniprogram-sdk",
   "author": "fireboom",
   "version": "0.1.0",
-  "type": "client",
-  "clientLanguage": "typescript",
   "description": "小程序 SDK",
   "outputPath": "./sdk/miniapp",
   "enabled": true
