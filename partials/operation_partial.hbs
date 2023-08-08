@@ -1,0 +1,12 @@
+{{#each operations~}}
+    {{~#if hasInput~}}
+        {{name}}Input,
+    {{~/if~}}
+    {{~#if (isAllTrue hasInternalInput includeInternal)~}}
+        {{name}}InternalInput,
+    {{~/if~}}
+    {{~name}}Response,
+    {{~#if includeResponseData~}}
+        {{name}}ResponseData,
+    {{~/if~}}
+{{~/each}}

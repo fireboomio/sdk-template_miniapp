@@ -1,0 +1,59 @@
+import { buildQuery, buildMutation, uploadFile, setBaseUrl, getBaseUrl } from './request'
+import type { {{> operation_partial operations=operations includeInternal=false includeResponseData=true}} } from './models'
+
+setBaseUrl('{{baseURL}}')
+
+const s3Providers = {
+{{#each s3Providers }}
+  {{name}}: {
+    "endpoint" : "{{endpoint.staticVariableContent}}",
+    "bucketName" : "{{bucketName.staticVariableContent}}",
+    "useSSL" : {{useSSL}},
+  },
+{{/each}}
+}
+
+
+function upload(serverName: string, filePath: string, fileName: string) {
+  const s3Config = s3Providers[serverName as keyof typeof s3Providers]
+  if (!s3Config) {
+    return null
+  }
+  return uploadFile({
+    url: `${getBaseUrl()}/app/main/s3/${serverName}/upload`,
+    filePath,
+    name: fileName
+  }).then((res: any) => {
+    const data = JSON.parse(res.data)
+    const key = data && data[0] && data[0].key
+    const {useSSL, bucketName, endpoint} = s3Config
+    return `${useSSL ? `https` : `http`}://${bucketName}.${endpoint}/${key}`
+  })
+}
+export default {
+  query: {
+{{#each operations}}
+    {{#if (isAllTrue isQuery (invertBool isInternal))}}
+    {{name}}: buildQuery<{{name}}Response{{#if hasInput}} ,{{name}}Input{{/if}}>('/operations/{{path}}'),
+    {{/if}}
+{{/each}}
+  },
+
+  liveQuery: {
+  {{#each operations}}
+      {{#if (isAllTrue isQuery isLiveQuery (invertBool isInternal))}}
+      {{name}}: buildLiveQuery<{{name}}Response{{#if hasInput}} ,{{name}}Input{{/if}}>('/operations/{{path}}'),
+      {{/if}}
+  {{/each}}
+  },
+
+  mutation: {
+  {{#each operations}}
+      {{#if (isAllTrue isMutation (invertBool isInternal))}}
+      {{name}}: buildMutation<{{name}}Response{{#if hasInput}} ,{{name}}Input{{/if}}>('/operations/{{path}}'),
+      {{/if}}
+  {{/each}}
+  },
+  upload,
+  setBaseUrl
+}

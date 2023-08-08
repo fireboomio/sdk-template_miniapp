@@ -1,0 +1,53 @@
+{{~#if operations}}
+    {{#each operations}}
+import type function_{{name}} from '../operations/{{path}}'
+    {{/each}}
+import type { ExtractResponse } from 'fireboom-wundersdk/operations'
+{{#each operations~}}
+    {{#equal engine 1}}
+export type {{name}}ResponseData = ExtractResponse<typeof function_{{name}}>
+    {{/equal}}
+export interface {{name}}Response {
+    data?: {{name}}ResponseData
+    errors?: ReadonlyArray<GraphQLError>;
+}
+{{/each}}
+{{~/if}}
+
+{{#each objectFieldArray}}
+export interface {{joinString '_' documentPath}} {
+    {{#each fields}}
+    {{name}}{{#unless required}}?{{/unless}}:
+        {{~#if typeRefObject~}}
+        {{~joinString '_' typeRefObject.documentPath~}}
+        {{~else~}}
+        {{~#if typeRefEnum~}}
+        {{~typeRefEnum.name~}}
+        {{~else~}}
+        {{~#equal typeName 'string'}}string{{/equal~}}
+        {{~#equal typeName 'integer'}}number{{/equal~}}
+        {{~#equal typeName 'number'}}number{{/equal~}}
+        {{~#equal typeName 'boolean'}}boolean{{/equal~}}
+        {{~#equal typeName ''}}any{{/equal~}}
+        {{~/if}}
+        {{~/if}}{{#if isArray}}[]{{~/if~}},
+    {{/each}}
+}
+{{/each}}
+
+{{~#each enumFieldArray}}
+enum {{name}} {
+    {{#each values}}
+    '{{this}}',
+    {{/each}}
+}
+{{/each}}
+
+export type JSONValue = string | number | boolean | JSONObject | Array<JSONValue>;
+
+export type JSONObject = { [key: string]: JSONValue };
+
+export interface GraphQLError {
+    message: string;
+    path?: ReadonlyArray<string | number>;
+}
