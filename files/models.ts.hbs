@@ -1,17 +1,19 @@
 {{~#if operations}}
-    {{#each operations}}
+    {{~#each operations}}
+        {{#equal engine 1}}
 import type function_{{name}} from '../operations/{{path}}'
+        {{/equal}}
     {{/each}}
 import type { ExtractResponse } from 'fireboom-wundersdk/operations'
-{{#each operations~}}
-    {{#equal engine 1}}
+    {{#each operations~}}
+        {{#equal engine 1}}
 export type {{name}}ResponseData = ExtractResponse<typeof function_{{name}}>
     {{/equal}}
 export interface {{name}}Response {
     data?: {{name}}ResponseData
     errors?: ReadonlyArray<GraphQLError>;
 }
-{{/each}}
+    {{/each}}
 {{~/if}}
 
 {{#each objectFieldArray}}
