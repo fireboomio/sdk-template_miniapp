@@ -10,6 +10,10 @@ function getFunction(fun) {
     // @ts-ignore
     return wx[fun]
     // @ts-ignore
+  } else if (uni && uni[fun]) {
+    // @ts-ignore
+    return uni[fun]
+    // @ts-ignore
   } else if (tt && tt[fun]) {
     // @ts-ignore
     return tt[fun]
