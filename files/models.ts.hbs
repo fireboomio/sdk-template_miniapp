@@ -1,48 +1,32 @@
 {{~#if operations}}
-    {{#each operations~}}
-        {{~#if (equalAny engine 0)}}
-export interface {{name}}Response {
-    data?: {{name}}ResponseData
-    errors?: ReadonlyArray<GraphQLError>;
+  {{#each operations~}}
+    {{~#unless (equalAny engine 2)}}
+export interface {{name}}Response<Error = any> {
+  data?: {{name}}ResponseData
+  error?: Error
 }
-        {{/if~}}
-    {{/each}}
+
+    {{/unless~}}
+  {{/each}}
 {{~/if}}
 
 {{#each objectFieldArray}}
-export interface {{joinString '_' documentPath}} {
-    {{#each fields}}
-    {{name}}{{#unless required}}?{{/unless}}:
-        {{~#if typeRefObject~}}
-        {{~joinString '_' typeRefObject.documentPath~}}
-        {{~else~}}
-        {{~#if typeRefEnum~}}
-        {{~typeRefEnum.name~}}
-        {{~else~}}
-        {{~#equal typeName 'string'}}string{{/equal~}}
-        {{~#equal typeName 'integer'}}number{{/equal~}}
-        {{~#equal typeName 'number'}}number{{/equal~}}
-        {{~#equal typeName 'boolean'}}boolean{{/equal~}}
-        {{~#equal typeName ''}}any{{/equal~}}
-        {{~/if}}
-        {{~/if}}{{#if isArray}}[]{{~/if~}},
-    {{/each}}
-}
+export type {{joinString '_' documentPath}} = {{#if fields}}{
+  {{#each fields}}
+  {{name}}{{#unless required}}?{{/unless}}: {{> field_type this=this }}
+  {{/each}}
+}{{else}}{{#unless additional}}{}{{/unless}}{{/if}}
+{{~#if additional}}{{#equal typeName 'object'}}Record<string, {{/equal}}{{#with additional}}{{> field_type this=this }}{{/with}}{{#equal typeName 'object'}}>{{else}}[]{{/equal}}{{/if}}
 {{/each}}
 
-{{~#each enumFieldArray}}
-enum {{name}} {
-    {{#each values}}
-    '{{this}}',
-    {{/each}}
+{{#each enumFieldArray}}
+export enum {{upperFirst name}} {
+  {{#each values}}
+  {{upperFirst (getOrDefault aliasKeys this this)}} = '{{this}}'{{#unless @last}},{{/unless}}
+  {{/each}}
 }
 {{/each}}
 
 export type JSONValue = string | number | boolean | JSONObject | Array<JSONValue>;
 
 export type JSONObject = { [key: string]: JSONValue };
-
-export interface GraphQLError {
-    message: string;
-    path?: ReadonlyArray<string | number>;
-}

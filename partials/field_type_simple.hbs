@@ -1,0 +1,4 @@
+{{~#equal typeName 'string'}}string{{/equal~}}
+{{~#if (equalAny typeName 'integer,number')}}number{{/if~}}
+{{~#equal typeName 'boolean'}}boolean{{/equal~}}
+{{~#equal typeName ''}}any{{/equal~}}

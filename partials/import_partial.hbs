@@ -1,0 +1,11 @@
+{{#each operations~}}
+  {{~#if hasInput~}}
+    {{name}}Input,
+  {{~/if~}}
+  {{~#unless (equalAny engine 2)}}{{name}}Response,{{/unless}}
+{{~/each}}
+{{~#each s3Providers~}}
+  {{#each uploadProfiles~}}
+    {{~../name}}_{{@key}}ProfileMeta,
+  {{~/each}}
+{{~/each}}

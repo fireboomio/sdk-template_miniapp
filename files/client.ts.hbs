@@ -1,0 +1,214 @@
+import {
+  type ClientConfig,
+  type ExtractMeta,
+  type ExtractProfileName,
+  type FetchUserRequestOptions,
+  type MutationRequestOptions,
+  type OperationsDefinition,
+  type OperationMetadata,
+  type QueryRequestOptions,
+  type SubscriptionRequestOptions,
+  type SubscriptionEventHandler,
+  type UploadValidationOptions,
+  type UploadRequestOptions,
+  type User,
+} from "@fireboom/client";
+import { doQuery, doMutate, doSubscription, uploadFiles, type MiniappClientConfig } from './request'
+import type { {{> import_partial operations=operations}} } from './models'
+
+
+export type Role = "{{{joinString '" | "' roles}}}"
+
+export type CustomClaims = Record<string, any>
+
+export const S3_ENABLED = {{isNotEmpty s3Providers}}
+export const AUTH_ENABLED = {{isNotEmpty authProviders}}
+
+{{#if (isNotEmpty s3Providers)}}
+export interface UploadResponse { key: string }
+
+type S3Providers ={
+{{#each s3Providers}}
+  {{name}}: {
+    hasProfiles: {{#if uploadProfiles}}true{{else}}false{{/if}},
+    profiles: {
+    {{#each uploadProfiles }}
+      {{@key}}: {{../name}}_{{@key}}ProfileMeta
+    {{/each}}
+    }
+  }
+{{/each}}
+}
+
+const S3ProviderData = {
+{{#each s3Providers}}
+  {{name}}: {
+    useSSL: {{useSSL}},
+    bucketName: '{{bucketName.staticVariableContent}}',
+    endpoint: '{{endpoint.staticVariableContent}}'
+  }{{#unless @last}},{{/unless}}
+{{/each}}
+}
+
+const S3ProfileData: { [provider: string]: { [profile: string]: UploadValidationOptions } } = {
+{{#each s3Providers}}
+  {{name}}: {
+    {{#each uploadProfiles}}
+    {{@key}}: {
+      requireAuthentication: {{#if this.requireAuthentication}}true{{else}}false{{/if}},
+      {{#if this.maxAllowedUploadSizeBytes includeZero=true}}
+      maxAllowedUploadSizeBytes: {{this.maxAllowedUploadSizeBytes}},
+      {{/if~}}
+      {{#if this.maxAllowedFiles includeZero=true}}
+      maxAllowedFiles: {{this.maxAllowedFiles}},
+      {{/if~}}
+      {{#if this.allowedMimeTypes}}
+      allowedMimeTypes: [{{#each this.allowedMimeTypes}}'{{this}}',{{/each}}],
+      {{/if~}}
+      {{#if this.allowedFileExtensions}}
+      allowedFileExtensions: [{{#each this.allowedFileExtensions}}'{{this}}',{{/each}}],
+      {{/if}}
+    },
+    {{/each}}
+  },
+{{/each}}
+}
+{{/if}}
+
+{{#if (isNotEmpty authProviders)}}
+export enum AuthProviderId {
+  {{#each authProviders}}
+  "{{id}}" = "{{id}}"{{#unless @last}},{{/unless}}
+  {{/each}}
+}
+
+export interface AuthProvider {
+  id: AuthProviderId;
+  login: (redirectURI?: string) => void;
+}
+{{/if}}
+
+export const defaultClientConfig: MiniappClientConfig = {
+  applicationHash: "{{applicationHash}}",
+  baseURL: "{{baseURL}}",
+  sdkVersion: "{{sdkVersion}}",
+}
+
+export const operationMetadata: OperationMetadata = {
+{{#each operations}}
+  "{{path}}": {
+    requiresAuthentication: {{authRequired}}
+  }{{#unless @last}},{{/unless}}
+{{/each}}
+}
+
+export class FBClient {
+	query<
+		OperationName extends Extract<keyof Operations['queries'], string>,
+		Input extends Operations['queries'][OperationName]['input'] = Operations['queries'][OperationName]['input'],
+		Response extends Operations['queries'][OperationName]['response'] = Operations['queries'][OperationName]['response']
+	>(options: OperationName extends string ? QueryRequestOptions<OperationName, Input> : QueryRequestOptions) {
+		return doQuery<QueryRequestOptions, Response['data'], Response['error']>(options);
+	}
+	mutate<
+		OperationName extends Extract<keyof Operations['mutations'], string>,
+		Input extends Operations['mutations'][OperationName]['input'] = Operations['mutations'][OperationName]['input'],
+		Response extends Operations['mutations'][OperationName]['response'] = Operations['mutations'][OperationName]['response']
+	>(options: OperationName extends string ? MutationRequestOptions<OperationName, Input> : MutationRequestOptions) {
+		return doMutate<MutationRequestOptions, Response['data'], Response['error']>(options);
+	}
+	subscribe<
+		OperationName extends Extract<keyof Operations["subscriptions"], string>,
+		Input extends Operations["subscriptions"][OperationName]["input"] = Operations["subscriptions"][OperationName]["input"],
+		Response extends Operations["subscriptions"][OperationName]["response"] = Operations["subscriptions"][OperationName]["response"],
+	>(
+		options: OperationName extends string
+			? SubscriptionRequestOptions<OperationName, Input>
+			: SubscriptionRequestOptions,
+		cb?: SubscriptionEventHandler<Response["data"], Response["error"]>
+	) {
+		return doSubscribe<SubscriptionRequestOptions, Response["data"], Response["error"]>(options, cb)
+	}
+	{{#if (isNotEmpty s3Providers)}}
+  public async uploadFiles<
+    ProviderName extends Extract<keyof S3Providers, string>,
+    ProfileName extends ExtractProfileName<S3Providers[ProviderName]['profiles']>
+      = ExtractProfileName<S3Providers[ProviderName]['profiles']>,
+    Meta extends ExtractMeta<S3Providers[ProviderName]['profiles'], ProfileName>
+      = ExtractMeta<S3Providers[ProviderName]['profiles'], ProfileName>
+  >(config: UploadRequestOptions<ProviderName, ProfileName, Meta> & { appendEndpoint?: boolean }) {
+    const validation = config.profile ? S3ProfileData[config.provider][config.profile as string] : undefined;
+    return uploadFiles(config, validation).then((resp) => {
+      if (config.appendEndpoint !== false) {
+        const { useSSL, bucketName, endpoint } = S3ProviderData[config.provider] ?? {}
+        resp.fileKeys = resp.fileKeys.map(
+          k => `${useSSL ? `https://` : `http://`}${bucketName}.${endpoint}/${k}`
+        )
+      }
+      return resp
+    });
+  }
+	{{/if}}
+}
+
+export const createClient = (config?: MiniappClientConfig) => {
+  return new FBClient({
+    ...defaultClientConfig,
+    ...config,
+    operationMetadata,
+    csrfEnabled: {{enableCSRFProtect}},
+  });
+};
+
+export type Queries = {
+{{#each operations}}
+    {{#if (isAllTrue isQuery (invertBool isInternal))}}
+  '{{path}}': {
+    {{#if hasInput}}input: {{name}}Input{{else}}input?: undefined{{/if}}
+    response: {{#if (equalAny engine 2)}}any{{else}}{{name}}Response{{/if}}
+    requiresAuthentication: {{authRequired}}
+    {{#if isLiveQuery}}liveQuery: boolean{{/if}}
+  }
+    {{/if}}
+{{/each}}
+}
+
+export type Mutations = {
+{{#each operations}}
+    {{#if (isAllTrue isMutation (invertBool isInternal))}}
+  '{{path}}': {
+    {{#if hasInput}}input: {{name}}Input{{else}}input?: undefined{{/if}}
+    response: {{#if (equalAny engine 2)}}any{{else}}{{name}}Response{{/if}}
+    requiresAuthentication: {{authRequired}}
+  }
+    {{/if}}
+{{/each}}
+}
+
+export type Subscriptions = {
+{{#each operations}}
+    {{#if (isAllTrue (isAnyTrue isSubscription (isAllTrue isQuery isLiveQuery)) (invertBool isInternal) )}}
+  '{{path}}': {
+    {{#if hasInput}}input: {{name}}Input{{else}}input?: undefined{{/if}}
+    response: {{#if (equalAny engine 2)}}any{{else}}{{name}}Response{{/if}}
+    requiresAuthentication: {{authRequired}}
+    {{#if isQuery}}liveQuery: true{{/if}}
+  }
+    {{/if}}
+{{/each}}
+}
+
+export type LiveQueries = {
+{{#each operations}}
+    {{#if (isAllTrue isQuery isLiveQuery (invertBool isInternal))}}
+  "{{path}}": {
+    {{#if hasInput}}input: {{name}}Input{{else}}input?: undefined{{/if}}
+    response: {{#if (equalAny engine 2)}}any{{else}}{{name}}Response{{/if}}
+    liveQuery: true
+    requiresAuthentication: {{authRequired}}
+  }
+    {{/if}}
+{{/each}}
+}
+
+export interface Operations extends OperationsDefinition<Queries, Mutations, Subscriptions, LiveQueries, Role,{{#if (isNotEmpty s3Providers)}} S3Providers{{else}}{}{{/if}}{{#if (isNotEmpty authProviders)}}, keyof typeof AuthProviderId{{/if}}> {}

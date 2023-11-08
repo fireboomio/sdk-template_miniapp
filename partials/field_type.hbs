@@ -1,0 +1,10 @@
+{{~#if typeRefObject~}}
+  {{#if upFirst}}{{~upperFirst (joinString '_' typeRefObject.documentPath)~}}{{else}}{{joinString '_' typeRefObject.documentPath~}}{{/if}}
+{{~else~}}
+    {{~#if typeRefEnum~}}
+        {{~upperFirst typeRefEnum.name~}}
+    {{~else~}}
+        {{~> field_type_simple typeName=typeName typeFormat=typeFormat}}
+    {{~/if~}}
+{{~/if~}}
+{{#if isArray}}[]{{~/if~}}
