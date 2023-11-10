@@ -355,7 +355,15 @@ export class Client {
       enableChunked: true,
     })
     requestTask.onChunkReceived(res => {
-      cb?.({ data: utf8ArrayToStr(new Uint8Array(res.data)) })
+      const chunk = utf8ArrayToStr(new Uint8Array(res.data))
+      const parts = chunk.split('\n\n')
+      for (const part of parts) {
+        const content = part.substring(6).trim()
+        if (content) {
+          const data = JSON.parse(content)
+          cb?.(data)
+        }
+      }
     })
   }
 
