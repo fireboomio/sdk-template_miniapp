@@ -202,8 +202,8 @@ export class Client {
     }
   }
 
-  private request(url: string, options?: { signal?: AbortSignal, query?: Query, body?: Body, method?: string, headers?: Headers }) {
-    const { headers, method = 'GET', signal } = options ?? {}
+  private request(url: string, options?: { enableChunked?: boolean, signal?: AbortSignal, query?: Query, body?: Body, method?: string, headers?: Headers }) {
+    const { headers, method = 'GET', signal, enableChunked } = options ?? {}
     let requestTask
     const promise = new Promise<any>((resolve, reject) => {
       requestTask = this.options.requestImpl({
@@ -216,6 +216,7 @@ export class Client {
         method,
         signal,
         timeout: this.options.requestTimeoutMs,
+        enableChunked,
         data: method.toUpperCase() === 'GET' ? undefined : options?.body,
         success(resp) {
           if (resp.statusCode >= 200 && resp.statusCode < 300) {
@@ -328,7 +329,7 @@ export class Client {
   /**
    * Set up subscriptions over SSE
    */
-  public async* subscribe<
+  public async subscribe<
     RequestOptions extends SubscriptionRequestOptions,
     Data = any,
     Error = any,
@@ -348,8 +349,10 @@ export class Client {
 
     const url = this.operationUrl(options.operationName)
     const [_, requestTask] = this.request(url, {
+      query: params,
       method: this.options.forceMethod || 'GET',
-      signal: options.abortSignal
+      signal: options.abortSignal,
+      enableChunked: true,
     })
     requestTask.onChunkReceived(res => {
       cb?.({ data: utf8ArrayToStr(new Uint8Array(res.data)) })
