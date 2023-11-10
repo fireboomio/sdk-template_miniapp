@@ -361,7 +361,7 @@ export class Client {
         const content = part.substring(6).trim()
         if (content) {
           const data = JSON.parse(content)
-          cb?.(data)
+          cb?.(this.convertGraphQLResponse(data))
         }
       }
     })
