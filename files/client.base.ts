@@ -10,13 +10,14 @@ import {
   type ValidationResponseJSON,
   type UploadRequestOptions,
   type UploadValidationOptions,
+  type Headers,
+  type PromiseOr,
   ResponseError,
   AuthorizationError,
   InputValidationError
 } from "@fireboom/client";
 import { utf8ArrayToStr } from './decoder'
 
-type Headers = Record<string, string>
 type Query = Record<string, any>
 type Body = Record<string, any>
 
@@ -33,10 +34,14 @@ export type UploadFile = {
 
 export type MiniappUploadConfig<ProviderName = any, ProfileName = any, Meta = any> = Omit<UploadRequestOptions<ProviderName, ProfileName, Meta>, 'files' | 'abortSignal'> & { file: UploadFile }
 
-export type MiniappClientConfig = Omit<ClientConfig, 'customFetch'> & {
+export type MiniappRequestInterceptorArg = { url: string, method: string, headers: Headers, body?: Body }
+export type MiniappResponse = { data: any, statusCode: number, header?: Headers, cookies?: string[], profile?: any, exception?: any }
+export type MiniappClientConfig = Omit<ClientConfig, 'customFetch' | 'requestInterceptor' | 'responseInterceptor'> & {
   requestImpl: (options: any) => void
   uploadImpl: (options: any) => void
   skipCSRF?: boolean
+  requestInterceptor?: (args: MiniappRequestInterceptorArg) => PromiseOr<MiniappRequestInterceptorArg> | null | undefined
+  responseInterceptor?: (args: { request: MiniappRequestInterceptorArg, response: MiniappResponse }) => PromiseOr<MiniappResponse> | null | undefined
 }
 
 export class Client {
@@ -202,27 +207,49 @@ export class Client {
     }
   }
 
-  private request(url: string, options?: { enableChunked?: boolean, signal?: AbortSignal, query?: Query, body?: Body, method?: string, headers?: Headers }) {
-    const { headers, method = 'GET', signal, enableChunked } = options ?? {}
+  private async request(url: string, options?: { enableChunked?: boolean, signal?: AbortSignal, query?: Query, body?: Body, method?: string, headers?: Headers, timeout?: number }) {
+    const { headers, method, signal, enableChunked, timeout } = options ?? {}
+    let _url = options?.query ? this.addUrlParams(url, options.query) : url
+    let _headers: Headers = {
+      ...this.baseHeaders,
+      ...this.extraHeaders,
+      ...headers,
+    }
+    let _method = method?.toUpperCase() ?? 'GET'
+    let _body = _method === 'GET' ? undefined : options?.body
+    const { requestInterceptor, responseInterceptor } = this.options
+    const request: MiniappRequestInterceptorArg = { url: _url, headers: _headers, method: _method, body: _body }
+    if (requestInterceptor) {
+      const res = await requestInterceptor(request)
+      if (res) {
+        _url = res.url
+        _headers = res._headers
+        _method = res.method
+        _body = res.body
+      }
+    }
     let requestTask
-    const promise = new Promise<any>((resolve, reject) => {
+    const promise = new Promise<MiniappResponse>((resolve, reject) => {
       requestTask = this.options.requestImpl({
-        url: options?.query ? this.addUrlParams(url, options.query) : url,
-        header: {
-          ...this.baseHeaders,
-          ...this.extraHeaders,
-          ...headers,
-        },
-        method,
+        url: _url,
+        header: _headers,
+        method: _url,
         signal,
-        timeout: this.options.requestTimeoutMs,
+        timeout: timeout ?? this.options.requestTimeoutMs,
         enableChunked,
-        data: method.toUpperCase() === 'GET' ? undefined : options?.body,
-        success(resp) {
-          if (resp.statusCode >= 200 && resp.statusCode < 300) {
-            resolve(resp.data)
+        data: _body,
+        async success(response) {
+          let _resp = response
+          if (responseInterceptor) {
+            const resp = await responseInterceptor({ request, response })
+            if (resp) {
+              _resp = resp
+            }
+          }
+          if (_resp.statusCode >= 200 && _resp.statusCode < 300) {
+            resolve(_resp.data)
           } else {
-            reject(resp)
+            reject(_resp)
           }
         },
         fail(e) {
@@ -254,7 +281,9 @@ export class Client {
     const req = (this.request(this.operationUrl(options.operationName), {
       method: this.options.forceMethod || 'GET',
       query: params,
-      signal: options.abortSignal
+      signal: options.abortSignal,
+      headers: options.headers,
+      timeout: options.timeout,
     }))[0]
     return this.fetchResponseToClientResponse(req)
   }
@@ -289,7 +318,7 @@ export class Client {
   ): Promise<ClientResponse<Data, Error>> {
     const url = this.operationUrl(options.operationName)
 
-    const headers: Headers = {}
+    const headers: Headers = { ...options.headers }
 
     if (this.shouldIncludeCsrfToken(this.isAuthenticatedOperation(options.operationName))) {
       headers['X-CSRF-Token'] = await this.getCSRFToken()
@@ -300,7 +329,8 @@ export class Client {
       query: this.searchParams(),
       body: options.input,
       headers,
-      signal: options.abortSignal
+      signal: options.abortSignal,
+      timeout: options.timeout,
     })[0]
     return this.fetchResponseToClientResponse(req)
   }
@@ -348,11 +378,13 @@ export class Client {
     }
 
     const url = this.operationUrl(options.operationName)
-    const [_, requestTask] = this.request(url, {
+    const [_, requestTask] = await this.request(url, {
       query: params,
       method: this.options.forceMethod || 'GET',
       signal: options.abortSignal,
       enableChunked: true,
+      headers: options.headers,
+      timeout: options.timeout,
     })
     requestTask.onChunkReceived(res => {
       const chunk = utf8ArrayToStr(new Uint8Array(res.data))
