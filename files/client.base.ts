@@ -278,21 +278,21 @@ export class Client {
     }
     this.operationUrl(options.operationName)
 
-    const req = (this.request(this.operationUrl(options.operationName), {
+    const resp = await (this.request(this.operationUrl(options.operationName), {
       method: this.options.forceMethod || 'GET',
       query: params,
       signal: options.abortSignal,
       headers: options.headers,
       timeout: options.timeout,
-    }))[0]
-    return this.fetchResponseToClientResponse(req)
+    }))
+    return this.fetchResponseToClientResponse(resp[0])
   }
 
   private async getCSRFToken(): Promise<string> {
     // request a new CSRF token if we don't have one
     if (!this.csrfToken) {
       // un-tested
-      const res = await (this.request(`${this.options.baseURL}/auth/cookie/csrf`, {
+      const res = await (await this.request(`${this.options.baseURL}/auth/cookie/csrf`, {
         headers: {
           ...this.baseHeaders,
           Accept: 'text/plain'
@@ -324,15 +324,15 @@ export class Client {
       headers['X-CSRF-Token'] = await this.getCSRFToken()
     }
 
-    const req = this.request(url, {
+    const resp = await this.request(url, {
       method: this.options.forceMethod || 'POST',
       query: this.searchParams(),
       body: options.input,
       headers,
       signal: options.abortSignal,
       timeout: options.timeout,
-    })[0]
-    return this.fetchResponseToClientResponse(req)
+    })
+    return this.fetchResponseToClientResponse(resp[0])
   }
 
   private shouldIncludeCsrfToken(orCondition: boolean) {
@@ -378,14 +378,14 @@ export class Client {
     }
 
     const url = this.operationUrl(options.operationName)
-    const [_, requestTask] = await this.request(url, {
+    const [_, requestTask] = await (await this.request(url, {
       query: params,
       method: this.options.forceMethod || 'GET',
       signal: options.abortSignal,
       enableChunked: true,
       headers: options.headers,
       timeout: options.timeout,
-    })
+    }))
     requestTask.onChunkReceived(res => {
       const chunk = utf8ArrayToStr(new Uint8Array(res.data))
       const parts = chunk.split('\n\n')
