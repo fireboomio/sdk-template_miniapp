@@ -223,7 +223,7 @@ export class Client {
       const res = await requestInterceptor(request)
       if (res) {
         _url = res.url
-        _headers = res._headers
+        _headers = res.headers
         _method = res.method
         _body = res.body
       }
@@ -233,7 +233,7 @@ export class Client {
       requestTask = this.options.requestImpl({
         url: _url,
         header: _headers,
-        method: _url,
+        method: _method,
         signal,
         timeout: timeout ?? this.options.requestTimeoutMs,
         enableChunked,
