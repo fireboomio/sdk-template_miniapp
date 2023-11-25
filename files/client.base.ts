@@ -175,6 +175,12 @@ export class Client {
         message: response
       })
     }
+    if (typeof response.data === 'string') {
+      return new ResponseError({
+        statusCode: response.statusCode,
+        message: (response.data as string).replace(/hooks pipeline failed:/g, '').trim()
+      })
+    }
     if (response.statusCode === 401) {
       return new AuthorizationError()
     }
@@ -238,8 +244,15 @@ export class Client {
         timeout: timeout ?? this.options.requestTimeoutMs,
         enableChunked,
         data: _body,
+        responseType: 'text',
+        dataType: '',
         async success(response) {
           let _resp = response
+          try {
+            _resp.data = JSON.parse(_resp.data)
+          } catch (error) {
+            //
+          }
           if (responseInterceptor) {
             const resp = await responseInterceptor({ request, response })
             if (resp) {
