@@ -195,13 +195,25 @@ export class Client {
         })
       }
     }
-
-    return new ResponseError({
-      code: response.data.errors[0]?.code,
-      statusCode: response.statusCode,
-      errors: response.data.errors,
-      message: response.data.errors[0]?.message ?? 'Invalid response from server'
-    })
+    if (response.data.errors) {
+      return new ResponseError({
+        code: response.data.errors[0]?.code,
+        statusCode: response.statusCode,
+        errors: response.data.errors,
+        message: response.data.errors[0]?.message ?? 'Invalid response from server'
+      })
+    }
+    try {
+      return new ResponseError({
+        statusCode: response.statusCode,
+        message: ('error' in response.data ? response.data.error : response.data).replaceAll('hooks pipeline failed:', '').trim() || 'Invalid response from server'
+      })
+    } catch (error) {
+      return new ResponseError({
+        statusCode: response.statusCode,
+        message: 'Invalid response from server'
+      })
+    }
   }
 
   private async fetchResponseToClientResponse(req: Promise<any>) {
