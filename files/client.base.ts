@@ -36,17 +36,19 @@ export type MiniappUploadConfig<ProviderName = any, ProfileName = any, Meta = an
 
 export type MiniappRequestInterceptorArg = { url: string, method: string, headers: Headers, body?: Body }
 export type MiniappResponse = { data: any, statusCode: number, header?: Headers, cookies?: string[], profile?: any, exception?: any }
+export type MiniappInterceptors = {
+  requestInterceptor?: (args: MiniappRequestInterceptorArg) => PromiseOr<MiniappRequestInterceptorArg> | null | undefined
+  responseInterceptor?: (args: { request: MiniappRequestInterceptorArg, response: MiniappResponse }) => PromiseOr<MiniappResponse> | null | undefined
+}
 export type MiniappClientConfig = Omit<ClientConfig, 'customFetch' | 'requestInterceptor' | 'responseInterceptor'> & {
   requestImpl: (options: any) => void
   uploadImpl: (options: any) => void
   skipCSRF?: boolean
-  requestInterceptor?: (args: MiniappRequestInterceptorArg) => PromiseOr<MiniappRequestInterceptorArg> | null | undefined
-  responseInterceptor?: (args: { request: MiniappRequestInterceptorArg, response: MiniappResponse }) => PromiseOr<MiniappResponse> | null | undefined
-}
+} & MiniappInterceptors
 
 export type MiniappRequestConfig = {
   enableChunked?: boolean, signal?: AbortSignal, query?: Query, body?: Body, method?: string, headers?: Headers, timeout?: number
-} & Pick<ClientConfig, 'requestInterceptor' | 'responseInterceptor'>
+} & MiniappInterceptors
 
 export class Client {
   protected readonly baseHeaders: Headers = {}
@@ -325,7 +327,7 @@ export class Client {
    * The method only throws an error if the request fails to reach the server or
    * the server returns a non-200 status code. Application errors are returned as part of the response.
    */
-  public async query<RequestOptions extends QueryRequestOptions, Data = any, Error = any>(
+  public async query<RequestOptions extends Omit<QueryRequestOptions, 'requestInterceptor' | 'responseInterceptor'> & MiniappInterceptors, Data = any, Error = any>(
     options: RequestOptions
   ): Promise<ClientResponse<Data, Error>> {
     const params: Query = this.searchParams()
@@ -375,7 +377,7 @@ export class Client {
    * The method only throws an error if the request fails to reach the server or
    * the server returns a non-200 status code. Application errors are returned as part of the response.
    */
-  public async mutate<RequestOptions extends MutationRequestOptions, Data = any, Error = any>(
+  public async mutate<RequestOptions extends Omit<MutationRequestOptions, 'requestInterceptor' | 'responseInterceptor'> & MiniappInterceptors, Data = any, Error = any>(
     options: RequestOptions
   ): Promise<ClientResponse<Data, Error>> {
     const url = this.operationUrl(options.operationName)
@@ -424,7 +426,7 @@ export class Client {
    * Set up subscriptions over SSE
    */
   public async subscribe<
-    RequestOptions extends SubscriptionRequestOptions,
+    RequestOptions extends Omit<SubscriptionRequestOptions, 'requestInterceptor' | 'responseInterceptor'> & MiniappInterceptors,
     Data = any,
     Error = any,
   >(options: RequestOptions, cb?: SubscriptionEventHandler<Data, Error>) {
