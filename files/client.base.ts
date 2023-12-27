@@ -44,6 +44,10 @@ export type MiniappClientConfig = Omit<ClientConfig, 'customFetch' | 'requestInt
   responseInterceptor?: (args: { request: MiniappRequestInterceptorArg, response: MiniappResponse }) => PromiseOr<MiniappResponse> | null | undefined
 }
 
+export type MiniappRequestConfig = {
+  enableChunked?: boolean, signal?: AbortSignal, query?: Query, body?: Body, method?: string, headers?: Headers, timeout?: number
+} & Pick<ClientConfig, 'requestInterceptor' | 'responseInterceptor'>
+
 export class Client {
   protected readonly baseHeaders: Headers = {}
   private extraHeaders: Headers = {}
@@ -225,7 +229,7 @@ export class Client {
     }
   }
 
-  private async request(url: string, options?: { enableChunked?: boolean, signal?: AbortSignal, query?: Query, body?: Body, method?: string, headers?: Headers, timeout?: number }) {
+  private async request(url: string, options?: MiniappRequestConfig) {
     const { headers, method, signal, enableChunked, timeout } = options ?? {}
     let _url = options?.query ? this.addUrlParams(url, options.query) : url
     let _headers: Headers = {
@@ -235,10 +239,13 @@ export class Client {
     }
     let _method = method?.toUpperCase() ?? 'GET'
     let _body = _method === 'GET' ? undefined : options?.body
-    const { requestInterceptor, responseInterceptor } = this.options
-    const request: MiniappRequestInterceptorArg = { url: _url, headers: _headers, method: _method, body: _body }
-    if (requestInterceptor) {
-      const res = await requestInterceptor(request)
+    
+    /**
+       * run request interceptor before global interceptor
+       * and use the returned value needed
+       */
+    if (options?.requestInterceptor) {
+      const res = await options.requestInterceptor({ url: _url, headers: _headers, method: _method, body: _body })
       if (res) {
         _url = res.url
         _headers = res.headers
@@ -246,6 +253,20 @@ export class Client {
         _body = res.body
       }
     }
+    /**
+     * run global request interceptor before fetch
+     * and use the returned value needed
+     */
+    if (this.options.requestInterceptor) {
+      const res = await this.options.requestInterceptor({ url: _url, headers: _headers, method: _method, body: _body })
+      if (res) {
+        _url = res.url
+        _headers = res.headers
+        _method = res.method
+        _body = res.body
+      }
+    }
+    const request = { url: _url, headers: _headers, method: _method, body: _body }
     let requestTask
     const promise = new Promise<MiniappResponse>((resolve, reject) => {
       requestTask = this.options.requestImpl({
@@ -265,8 +286,22 @@ export class Client {
           } catch (error) {
             //
           }
-          if (responseInterceptor) {
-            const resp = await responseInterceptor({ request, response })
+          /**
+           * run global interceptor after fetch
+           * and use the returned value as needed
+           */
+          if (this.options.responseInterceptor) {
+            const resp = await this.options.responseInterceptor({ request, response })
+            if (resp) {
+              _resp = resp
+            }
+          }
+          /**
+           * run request interceptor after global interceptor
+           * and use the returned value as needed
+           */
+          if (options?.responseInterceptor) {
+            const resp = await options.responseInterceptor({ request, response })
             if (resp) {
               _resp = resp
             }
@@ -309,6 +344,8 @@ export class Client {
       signal: options.abortSignal,
       headers: options.headers,
       timeout: options.timeout,
+      requestInterceptor: options.requestInterceptor,
+      responseInterceptor: options.responseInterceptor
     }))
     return this.fetchResponseToClientResponse(resp[0])
   }
@@ -356,6 +393,8 @@ export class Client {
       headers,
       signal: options.abortSignal,
       timeout: options.timeout,
+      requestInterceptor: options.requestInterceptor,
+      responseInterceptor: options.responseInterceptor
     })
     return this.fetchResponseToClientResponse(resp[0])
   }
@@ -410,6 +449,8 @@ export class Client {
       enableChunked: true,
       headers: options.headers,
       timeout: options.timeout,
+      requestInterceptor: options.requestInterceptor,
+      responseInterceptor: options.responseInterceptor
     }))
     requestTask.onChunkReceived(res => {
       const chunk = utf8ArrayToStr(new Uint8Array(res.data))
