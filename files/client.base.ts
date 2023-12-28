@@ -243,11 +243,11 @@ export class Client {
     let _body = _method === 'GET' ? undefined : options?.body
     
     /**
-       * run request interceptor before global interceptor
-       * and use the returned value needed
-       */
-    if (options?.requestInterceptor) {
-      const res = await options.requestInterceptor({ url: _url, headers: _headers, method: _method, body: _body })
+     * run global request interceptor before fetch
+     * and use the returned value needed
+     */
+    if (this.options.requestInterceptor) {
+      const res = await this.options.requestInterceptor({ url: _url, headers: _headers, method: _method, body: _body })
       if (res) {
         _url = res.url
         _headers = res.headers
@@ -256,11 +256,11 @@ export class Client {
       }
     }
     /**
-     * run global request interceptor before fetch
-     * and use the returned value needed
-     */
-    if (this.options.requestInterceptor) {
-      const res = await this.options.requestInterceptor({ url: _url, headers: _headers, method: _method, body: _body })
+       * run request interceptor before global interceptor
+       * and use the returned value needed
+       */
+    if (options?.requestInterceptor) {
+      const res = await options.requestInterceptor({ url: _url, headers: _headers, method: _method, body: _body })
       if (res) {
         _url = res.url
         _headers = res.headers
