@@ -14,7 +14,8 @@ export interface {{name}}Response<Error = any> {
 {{#unless (equalAny root 'InternalInput')}}
 export type {{joinString '_' documentPath}} = {{#if fields}}{
   {{#each fields}}
-  {{name}}{{#unless required}}?{{/unless}}: {{> field_type this=this }}
+  {{#if description}}/** {{description}} */
+  {{/if}}{{name}}{{#unless required}}?{{/unless}}: {{> field_type this=this }}
   {{/each}}
 }{{else}}{{#unless additional}}{}{{/unless}}{{/if}}
 {{~#if additional}}{{#equal typeName 'object'}}Record<string, {{/equal}}{{#with additional}}{{> field_type this=this }}{{/with}}{{#equal typeName 'object'}}>{{else}}[]{{/equal}}{{/if}}
@@ -24,7 +25,8 @@ export type {{joinString '_' documentPath}} = {{#if fields}}{
 {{#each enumFieldArray}}
 export enum {{upperFirst name}} {
   {{#each values}}
-  {{upperFirst (getOrDefault aliasKeys this this)}} = '{{this}}'{{#unless @last}},{{/unless}}
+  {{#if description}}/** {{description}} */
+  {{/if}}{{upperFirst (getOrDefault aliasKeys this this)}} = '{{this}}'{{#unless @last}},{{/unless}}
   {{/each}}
 }
 {{/each}}
